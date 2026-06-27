@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+*.log
+*.tmp
+*.swp
+output/
+Library/Caches/
+raw.geojson
+businesses.csv
+businesses_summary.csv

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Businesses</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+  <div class="header">
+    <h1>🗺 Business Analyzer</h1>
+    <p>OpenStreetMap data · ODbL license · CSV dataset</p>
+  </div>
+
+  <div class="container">
+    <div class="wrapper">
+      <div class="stats" id="stats"></div>
+      <div class="filters-bar">
+        <select id="filterGroup">
+          <option value="">All groups</option>
+          <option value="food">🍽 Food</option>
+          <option value="retail">🛍 Retail</option>
+          <option value="health">🏥 Health</option>
+          <option value="finance">🏦 Finance</option>
+          <option value="services">✂️ Services</option>
+          <option value="tourism">🏨 Tourism</option>
+          <option value="transport">🚗 Transport</option>
+          <option value="education">📚 Education</option>
+          <option value="leisure">🏋️ Leisure</option>
+          <option value="entertainment">🎭 Entertainment</option>
+          <option value="religious">⛪ Religious</option>
+          <option value="other">📦 Other</option>
+        </select>
+        <div id="filterCategoryField" class="field-card">
+          <select id="filterCategory">
+            <option value="">All categories</option>
+          </select>
+        </div>
+        <div class="field-card" data-field-card="phone"><label>Phone</label><input class="tri-check" data-field="phone"
+            type="checkbox"><span class="tri-state">Empty</span></div>
+        <div class="field-card" data-field-card="hours"><label>Hours</label><input class="tri-check" data-field="hours"
+            type="checkbox"><span class="tri-state">Empty</span></div>
+        <div class="field-card" data-field-card="website"><label>Website</label><input class="tri-check"
+            data-field="website" type="checkbox"><span class="tri-state">Empty</span></div>
+        <div class="field-card" data-field-card="address"><label>Address</label><input class="tri-check"
+            data-field="address" type="checkbox"><span class="tri-state">Empty</span></div>
+        <div class="field-card" data-field-card="name"><label>Name</label><input class="tri-check" data-field="name"
+            type="checkbox"><span class="tri-state">Empty</span></div>
+        <div class="field-card" data-field-card="favorite"><label>Favorites</label><input class="tri-check"
+            data-field="favorite" type="checkbox"><span class="tri-state">Empty</span></div>
+        <button id="openGenerateModal" class="page-btn" type="button">Generate list</button>
+      </div>
+
+    </div>
+
+    <div id="generateModal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Generate list</h2>
+          <button id="closeGenerateModal" class="modal-close" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="file-info">
+            <strong>Where to get the GeoJSON</strong>
+            <p>1) Open <a href="https://overpass-turbo.eu/" target="_blank" rel="noreferrer">Overpass Turbo</a>.</p>
+            <p>2) Build the POI query you need and export the result as GeoJSON.</p>
+            <p>3) Upload that GeoJSON here and click <strong>Run generation</strong>.</p>
+            <details class="query-example">
+              <summary>Show a sample query</summary>
+              <div class="query-copy-wrap">
+                <button id="copySampleQuery" class="copy-sample" type="button">Copy</button>
+                <pre id="sampleQuery">[out:json][timeout:25];
+{{geocodeArea:<span class="query-placeholder">Your city name</span>}}->.searchArea;
+(
+  node["amenity"="cafe"](area.searchArea);
+  way["amenity"="cafe"](area.searchArea);
+  relation["amenity"="cafe"](area.searchArea);
+);
+out center;</pre>
+              </div>
+            </details>
+          </div>
+          <label>GeoJSON file</label>
+          <input id="genFile" type="file" accept=".geojson,application/geo+json,application/json">
+        </div>
+        <div class="modal-actions">
+          <button id="runGenerate" class="page-btn active" type="button">Run generation</button>
+          <button id="cancelGenerate" class="page-btn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Loading CSV...</div>
+
+    <div class="table-wrap">
+      <table id="mainTable" style="display:none">
+        <thead>
+          <tr>
+            <th id="th-group">Group</th>
+            <th id="th-category">Category</th>
+            <th id="th-name">Name</th>
+            <th id="th-address">Address</th>
+            <th id="th-phone">Phone</th>
+            <th id="th-website">Website</th>
+            <th id="th-hours">Hours</th>
+            <th id="th-coords">Coords</th>
+            <th id="th-cuisine">Cuisine</th>
+            <th id="th-action">Action</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="pagination"></div>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+
+</html>
