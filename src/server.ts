@@ -67,7 +67,7 @@ for (const [route, file] of Object.entries(STATIC_FILES)) {
 
 // Run process.ts on uploaded GeoJSON
 const _generateSchema = z.object({
-  inputFile: z.instanceof(File).refine((f) => f.size <= MAX_FILE_SIZE, 'File too large (max 50MB)'),
+  inputFile: z.instanceof(File).refine((f) => f.size <= MAX_FILE_SIZE, { error: 'File too large (max 50MB)' }),
 });
 
 app.post('/generate', async (c) => {
