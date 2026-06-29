@@ -217,37 +217,6 @@ function editItem(id) {
   applyEdits(current)
   applyFilters()
 }
-function applyFilters() {
-  const group = document.getElementById("filterGroup").value
-  const cat = document.getElementById("filterCategory").value
-  const states = {
-    phone:
-      document.querySelector('[data-field="phone"]').dataset.state || "any",
-    hours:
-      document.querySelector('[data-field="hours"]').dataset.state || "any",
-    website:
-      document.querySelector('[data-field="website"]').dataset.state || "any",
-    address:
-      document.querySelector('[data-field="address"]').dataset.state || "any",
-    name: document.querySelector('[data-field="name"]').dataset.state || "any",
-    favorite:
-      document.querySelector('[data-field="favorite"]').dataset.state || "any",
-  }
-  filtered = allData.filter((r) => {
-    const favPresent = favorites.has(r.osm_id)
-    return (
-      (!group || r.group === group) &&
-      (!cat || r.category === cat) &&
-      fieldStateMatch(r.phone, states.phone, undefined, r.osm_id) &&
-      fieldStateMatch(r.opening_hours, states.hours, undefined, r.osm_id) &&
-      fieldStateMatch(r.website, states.website, undefined, r.osm_id) &&
-      fieldStateMatch(getAddress(r), states.address, undefined, r.osm_id) &&
-      fieldStateMatch(r.name, states.name, undefined, r.osm_id) &&
-      fieldStateMatch(null, states.favorite, favPresent, r.osm_id)
-    )
-  })
-  render()
-}
 function badge(group) {
   const g = group || "other"
   return `<span class="badge group-${g}">${GROUP_EMOJI[g] || "📦"} ${g}</span>`
@@ -342,15 +311,6 @@ function setupTriStateCheckboxes() {
     cb.addEventListener("click", cycle)
     updateUI()
   })
-}
-function setupFilters() {
-  document.getElementById("filterGroup").addEventListener("change", () => {
-    buildCategoryFilter()
-    applyFilters()
-  })
-  document
-    .getElementById("filterCategory")
-    .addEventListener("change", applyFilters)
 }
 function openModal() {
   document.getElementById("generateModal").classList.remove("hidden")
