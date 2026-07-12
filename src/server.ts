@@ -33,7 +33,17 @@ app.get('/health', (c) => {
   });
 });
 
-// Serve static files
+// MIME type map
+const MIME: Record<string, string> = {
+  html: 'text/html; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+  js: 'application/javascript; charset=utf-8',
+  csv: 'text/csv; charset=utf-8',
+  geojson: 'application/geo+json; charset=utf-8',
+  json: 'application/json; charset=utf-8',
+};
+
+// Serve static files — frontend files from public/, data files from root
 const STATIC_FILES: Record<string, string> = {
   '/': 'index.html',
   '/styles.css': 'styles.css',
@@ -42,22 +52,18 @@ const STATIC_FILES: Record<string, string> = {
   '/businesses_summary.csv': 'businesses_summary.csv',
 };
 
+const isPublicFile = (file: string) =>
+  file.endsWith('.html') || file.endsWith('.css') || file.endsWith('.js');
+
 for (const [route, file] of Object.entries(STATIC_FILES)) {
   app.get(route, async (c) => {
-    const filePath = join(ROOT, file);
+    const baseDir = isPublicFile(file) ? join(ROOT, 'public') : ROOT;
+    const filePath = join(baseDir, file);
     try {
       const content = await readFile(filePath);
       const ext = file.split('.').pop() || '';
-      const mime: Record<string, string> = {
-        html: 'text/html; charset=utf-8',
-        css: 'text/css; charset=utf-8',
-        js: 'application/javascript; charset=utf-8',
-        csv: 'text/csv; charset=utf-8',
-        geojson: 'application/geo+json; charset=utf-8',
-        json: 'application/json; charset=utf-8',
-      };
       return c.newResponse(content, 200, {
-        'Content-Type': mime[ext] || 'application/octet-stream',
+        'Content-Type': MIME[ext] || 'application/octet-stream',
       });
     } catch {
       throw new HTTPException(404, { message: 'Not found' });
@@ -133,6 +139,11 @@ app.post('/generate', async (c) => {
   }
 });
 
+// Not-found handler (routes that don't match any static file or endpoint)
+app.notFound((c) => {
+  return c.json({ ok: false, error: 'Not found' }, 404);
+});
+
 // Error handling
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
@@ -141,6 +152,8 @@ app.onError((err, c) => {
   console.error('Unhandled error:', err);
   return c.json({ ok: false, error: 'Internal Server Error' }, 500);
 });
+
+export { app };
 
 // Graceful shutdown
 let server: ReturnType<typeof serve> | null = null;
