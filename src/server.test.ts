@@ -1,3 +1,6 @@
+import { existsSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 type ApiResponse = {
@@ -10,6 +13,17 @@ type ApiResponse = {
 
 // Set a unique port before importing server so module-level serve() doesn't conflict
 process.env.PORT = '0';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..');
+const csvPath = join(ROOT, 'businesses.csv');
+if (!existsSync(csvPath)) {
+  const sampleCsv = `osm_id,name,tag_key,category,group,lat,lon,street,housenumber,phone,website,opening_hours,cuisine,brand,density_500m,density_1000m,location_score
+way/25699483,Test School,amenity,school,education,41.697620,44.797843,Rustaveli Ave,10,+995 32 293 26 28,,,,,10,20,85
+node/12345,Test Cafe,amenity,cafe,food,41.697500,44.797700,Rustaveli Ave,12,,,,,10,20,75
+`;
+  writeFileSync(csvPath, sampleCsv, 'utf-8');
+}
 
 const { app } = await import('./server.js');
 
