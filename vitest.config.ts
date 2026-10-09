@@ -8,7 +8,7 @@ export default defineConfig({
     exclude: ['node_modules', 'dist'],
     testTimeout: 30_000,
     coverage: {
-      enabled: true,
+      enabled: false,
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
       include: ['src/**/*.ts'],

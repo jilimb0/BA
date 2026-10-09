@@ -9,6 +9,12 @@ import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { logger } from 'hono/logger';
 import { z } from 'zod';
+import type { BusinessRow, ReferencePOI } from './analyzer.js';
+import {
+  calculateDensity,
+  calculateLocationScore,
+  generateLocationReportHtml,
+} from './analyzer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -46,6 +52,7 @@ const MIME: Record<string, string> = {
 // Serve static files — frontend files from public/, data files from root
 const STATIC_FILES: Record<string, string> = {
   '/': 'index.html',
+  '/widget': 'widget.html',
   '/styles.css': 'styles.css',
   '/script.js': 'script.js',
   '/businesses.csv': 'businesses.csv',
@@ -137,6 +144,153 @@ app.post('/generate', async (c) => {
       unlink(tmpDir).catch(() => {});
     } catch {}
   }
+});
+
+// Location scoring API
+const scoreQuerySchema = z.object({
+  lat: z.coerce.number(),
+  lon: z.coerce.number(),
+  category: z.string().optional(),
+  group: z.string().optional(),
+});
+
+app.get('/api/score', async (c) => {
+  const query = c.req.query();
+  const parsed = scoreQuerySchema.safeParse(query);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'lat and lon are required numbers' });
+  }
+
+  const csvPath = join(ROOT, 'businesses.csv');
+  if (!existsSync(csvPath)) {
+    throw new HTTPException(404, { message: 'businesses.csv not generated yet' });
+  }
+
+  const csvContent = await readFile(csvPath, 'utf-8');
+  const lines = csvContent.split('\n').filter(Boolean);
+  if (lines.length <= 1) {
+    throw new HTTPException(400, { message: 'No businesses found in dataset' });
+  }
+
+  const header = lines[0].split(',');
+  const latIdx = header.indexOf('lat');
+  const lonIdx = header.indexOf('lon');
+  const catIdx = header.indexOf('category');
+  const grpIdx = header.indexOf('group');
+
+  const pois: ReferencePOI[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',');
+    const lat = Number.parseFloat(parts[latIdx]);
+    const lon = Number.parseFloat(parts[lonIdx]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+      pois.push({
+        lat,
+        lon,
+        category: parts[catIdx],
+        group: parts[grpIdx],
+      });
+    }
+  }
+
+  const target = {
+    lat: parsed.data.lat,
+    lon: parsed.data.lon,
+    category: parsed.data.category,
+    group: parsed.data.group,
+  };
+
+  const density = calculateDensity(target, pois);
+  const scoreResult = calculateLocationScore(target, pois);
+
+  return c.json({
+    ok: true,
+    target,
+    density,
+    score: scoreResult,
+  });
+});
+
+// Interactive location intelligence report API
+app.get('/api/report', async (c) => {
+  const osmId = c.req.query('osm_id');
+  if (!osmId) {
+    throw new HTTPException(400, { message: 'osm_id query parameter is required' });
+  }
+
+  const csvPath = join(ROOT, 'businesses.csv');
+  if (!existsSync(csvPath)) {
+    throw new HTTPException(404, { message: 'businesses.csv not generated yet' });
+  }
+
+  const csvContent = await readFile(csvPath, 'utf-8');
+  const lines = csvContent.split('\n').filter(Boolean);
+  const header = lines[0].split(',');
+  const idIdx = header.indexOf('osm_id');
+  const latIdx = header.indexOf('lat');
+  const lonIdx = header.indexOf('lon');
+  const catIdx = header.indexOf('category');
+  const grpIdx = header.indexOf('group');
+
+  let matchedLine: string | null = null;
+  const pois: ReferencePOI[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',');
+    if (parts[idIdx] === osmId || parts[idIdx] === `"${osmId}"`) {
+      matchedLine = lines[i];
+    }
+    const lat = Number.parseFloat(parts[latIdx]);
+    const lon = Number.parseFloat(parts[lonIdx]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+      pois.push({
+        lat,
+        lon,
+        category: parts[catIdx],
+        group: parts[grpIdx],
+      });
+    }
+  }
+
+  if (!matchedLine) {
+    throw new HTTPException(404, { message: `Business with osm_id ${osmId} not found` });
+  }
+
+  const cols = matchedLine.split(',');
+  const getCol = (name: string) => {
+    const idx = header.indexOf(name);
+    return idx >= 0 ? (cols[idx] ?? '') : '';
+  };
+
+  const businessRow: BusinessRow = {
+    osmId: getCol('osm_id'),
+    name: getCol('name'),
+    tagKey: getCol('tag_key'),
+    category: getCol('category'),
+    group: getCol('group'),
+    lat: getCol('lat'),
+    lon: getCol('lon'),
+    street: getCol('street'),
+    housenumber: getCol('housenumber'),
+    phone: getCol('phone'),
+    website: getCol('website'),
+    openingHours: getCol('opening_hours'),
+    cuisine: getCol('cuisine'),
+    brand: getCol('brand'),
+  };
+
+  const target = {
+    lat: Number.parseFloat(businessRow.lat),
+    lon: Number.parseFloat(businessRow.lon),
+    category: businessRow.category,
+    group: businessRow.group,
+  };
+
+  const density = calculateDensity(target, pois);
+  const scoreResult = calculateLocationScore(target, pois);
+
+  const html = generateLocationReportHtml(businessRow, density, scoreResult);
+  return c.html(html);
 });
 
 // Not-found handler (routes that don't match any static file or endpoint)

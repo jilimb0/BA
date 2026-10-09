@@ -6,12 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Businesses</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 
 <body>
   <div class="header">
-    <h1>🗺 Business Analyzer</h1>
-    <p>OpenStreetMap data · ODbL license · CSV dataset</p>
+    <div>
+      <h1>🗺 Business Analyzer</h1>
+      <p>OpenStreetMap data · Location Intelligence · Catchment & Competition Scoring</p>
+    </div>
+    <div class="view-switcher">
+      <button id="btnViewSplit" class="view-btn active" type="button">⚡ Split</button>
+      <button id="btnViewMap" class="view-btn" type="button">🗺️ Map</button>
+      <button id="btnViewTable" class="view-btn" type="button">📋 Table</button>
+    </div>
   </div>
 
   <div class="container">
@@ -93,29 +102,63 @@ out center;</pre>
       </div>
     </div>
 
-    <div class="status" id="status">Loading CSV...</div>
-
-    <div class="table-wrap">
-      <table id="mainTable" style="display:none">
-        <thead>
-          <tr>
-            <th id="th-group">Group</th>
-            <th id="th-category">Category</th>
-            <th id="th-name">Name</th>
-            <th id="th-address">Address</th>
-            <th id="th-phone">Phone</th>
-            <th id="th-website">Website</th>
-            <th id="th-hours">Hours</th>
-            <th id="th-coords">Coords</th>
-            <th id="th-cuisine">Cuisine</th>
-            <th id="th-action">Action</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
+    <!-- Location Intelligence Report Modal -->
+    <div id="reportModal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card report-modal-card">
+        <div class="modal-header">
+          <h2 id="reportModalTitle">Location Intelligence Report</h2>
+          <button id="closeReportModal" class="modal-close" type="button">✕</button>
+        </div>
+        <div class="modal-body" id="reportModalBody">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="modal-actions">
+          <a id="btnOpenFullReport" href="#" target="_blank" class="page-btn active">Print / Full Report</a>
+          <button id="btnCloseReport" class="page-btn" type="button">Close</button>
+        </div>
+      </div>
     </div>
 
-    <div id="pagination"></div>
+    <div class="status" id="status">Loading CSV...</div>
+
+    <!-- Main Content Layout (Map + Table) -->
+    <div id="contentLayout" class="layout-split">
+      <div id="mapWrap" class="map-wrap">
+        <div id="map"></div>
+        <div class="map-legend">
+          <span><span class="legend-dot" style="background:#d97706"></span> Food</span>
+          <span><span class="legend-dot" style="background:#2563eb"></span> Retail</span>
+          <span><span class="legend-dot" style="background:#059669"></span> Health</span>
+          <span><span class="legend-dot" style="background:#7c3aed"></span> Finance</span>
+          <span><span class="legend-dot" style="background:#db2777"></span> Services</span>
+          <span><span class="legend-dot" style="background:#ea580c"></span> Tourism</span>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="tableWrap">
+        <table id="mainTable" style="display:none">
+          <thead>
+            <tr>
+              <th id="th-group" class="sortable">Group ↕</th>
+              <th id="th-category" class="sortable">Category ↕</th>
+              <th id="th-name" class="sortable">Name ↕</th>
+              <th id="th-density" class="sortable">Density (500m) ↕</th>
+              <th id="th-score" class="sortable">Score ↕</th>
+              <th id="th-address">Address</th>
+              <th id="th-phone">Phone</th>
+              <th id="th-website">Website</th>
+              <th id="th-hours">Hours</th>
+              <th id="th-coords">Coords</th>
+              <th id="th-cuisine">Cuisine</th>
+              <th id="th-action">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="pagination"></div>
+      </div>
+    </div>
   </div>
 
   <script src="/script.js"></script>

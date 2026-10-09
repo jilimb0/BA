@@ -657,10 +657,207 @@ tr:hover td {
   white-space: nowrap;
 }
 
-#th-action {
-  text-align: end;
-}
-
 .action-cell {
   justify-content: end;
 }
+
+/* View Switcher */
+.view-switcher {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.view-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.view-btn.active {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: white;
+}
+
+/* Layouts */
+#contentLayout {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  margin-right: 32px;
+}
+
+.layout-split #mapWrap {
+  flex: 1;
+  min-height: 580px;
+  display: block;
+}
+
+.layout-split #tableWrap {
+  flex: 1;
+  overflow-x: auto;
+}
+
+.layout-map #mapWrap {
+  width: 100%;
+  min-height: 720px;
+  display: block;
+}
+
+.layout-map #tableWrap {
+  display: none;
+}
+
+.layout-table #mapWrap {
+  display: none;
+}
+
+.layout-table #tableWrap {
+  width: 100%;
+  display: block;
+}
+
+/* Map Styling */
+.map-wrap {
+  position: relative;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  min-height: 580px;
+}
+
+.map-legend {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+  z-index: 1000;
+  flex-wrap: wrap;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* Score Badges */
+.score-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.grade-a {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.grade-b {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.grade-c {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.grade-d {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Sortable Headers */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* Report Modal & Card */
+.report-modal-card {
+  max-width: 650px;
+  width: 90%;
+}
+
+.report-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.report-metric-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.report-metric-box .metric-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4338ca;
+}
+
+.report-metric-box .metric-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.report-rec-box {
+  background: #eef2ff;
+  border-left: 4px solid #4f46e5;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: #1e1b4b;
+}
+
+.paywall-badge {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+

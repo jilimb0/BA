@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "OSM-based business analyzer. Ingests GeoJSON exports, filters business POIs into categorized CSV, browser UI with filtering/favorites/editing.",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",

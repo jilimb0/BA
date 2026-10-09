@@ -1,6 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import type { BusinessFeature } from './analyzer.js';
-import { classifyFeature } from './analyzer.js';
+import type { BusinessFeature, BusinessRow } from './analyzer.js';
+import {
+  calculateDensity,
+  calculateLocationScore,
+  classifyFeature,
+  SpatialGrid,
+} from './analyzer.js';
 
 const args = Object.fromEntries(
   process.argv.slice(2).flatMap((arg) => {
@@ -17,15 +22,59 @@ const CITY_NAME = args.city ?? 'Businesses';
 const raw = JSON.parse(readFileSync(INPUT_GEOJSON, 'utf-8'));
 const features: BusinessFeature[] = raw.features ?? raw.elements ?? [];
 
-const rows: string[] = [];
+const classifiedList: BusinessRow[] = [];
 const summary: Record<string, Record<string, number>> = {};
 let skipped = 0;
+
+const grid = new SpatialGrid(0.01);
 
 for (const f of features) {
   const result = classifyFeature(f);
   if (!result) {
     skipped++;
     continue;
+  }
+
+  classifiedList.push(result);
+
+  const latNum = Number.parseFloat(result.lat);
+  const lonNum = Number.parseFloat(result.lon);
+  if (!Number.isNaN(latNum) && !Number.isNaN(lonNum)) {
+    grid.insert({
+      lat: latNum,
+      lon: lonNum,
+      category: result.category,
+      group: result.group,
+    });
+  }
+
+  summary[result.group] ??= {};
+  const catVal = result.category ? result.category.replace(/^"|"$/g, '') : '';
+  summary[result.group][catVal] = (summary[result.group][catVal] ?? 0) + 1;
+}
+
+const rows: string[] = [];
+
+for (const result of classifiedList) {
+  const latNum = Number.parseFloat(result.lat);
+  const lonNum = Number.parseFloat(result.lon);
+  let density500 = 0;
+  let density1000 = 0;
+  let locationScore = 0;
+
+  if (!Number.isNaN(latNum) && !Number.isNaN(lonNum)) {
+    const nearby = grid.getNearby(latNum, lonNum, 1000);
+    const d = calculateDensity(
+      { lat: latNum, lon: lonNum, category: result.category, group: result.group },
+      nearby,
+    );
+    density500 = d.totalNearby500;
+    density1000 = d.totalNearby1000;
+    const scoreObj = calculateLocationScore(
+      { lat: latNum, lon: lonNum, category: result.category, group: result.group },
+      nearby,
+    );
+    locationScore = scoreObj.score;
   }
 
   rows.push(
@@ -44,16 +93,15 @@ for (const f of features) {
       result.openingHours,
       result.cuisine,
       result.brand,
+      density500,
+      density1000,
+      locationScore,
     ].join(','),
   );
-
-  summary[result.group] ??= {};
-  const catVal = result.category ? result.category.replace(/^"|"$/g, '') : '';
-  summary[result.group][catVal] = (summary[result.group][catVal] ?? 0) + 1;
 }
 
 const header =
-  'osm_id,name,tag_key,category,group,lat,lon,street,housenumber,phone,website,opening_hours,cuisine,brand';
+  'osm_id,name,tag_key,category,group,lat,lon,street,housenumber,phone,website,opening_hours,cuisine,brand,density_500m,density_1000m,location_score';
 writeFileSync(OUTPUT_CSV, [header, ...rows].join('\n'), 'utf-8');
 
 const summaryRows = ['group,category,count'];

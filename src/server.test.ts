@@ -75,6 +75,12 @@ describe('Static files', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toContain('text/html');
   });
+
+  it('serves widget.html from public/', async () => {
+    const res = await app.request('/widget');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/html');
+  });
 });
 
 describe('Error handling', () => {
@@ -84,5 +90,43 @@ describe('Error handling', () => {
     const body = (await res.json()) as ApiResponse;
     expect(body.ok).toBe(false);
     expect(body.error).toBe('Not found');
+  });
+});
+
+describe('GET /api/score', () => {
+  it('returns 400 when lat/lon are missing or invalid', async () => {
+    const res = await app.request('/api/score');
+    expect(res.status).toBe(400);
+  });
+
+  it('calculates score and density for coordinates in dataset', async () => {
+    const res = await app.request('/api/score?lat=41.6976&lon=44.7978&category=cafe&group=food');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      score: { score: number; rating: string };
+      density: { totalNearby500: number };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.score).toBeDefined();
+    expect(body.score.score).toBeGreaterThan(0);
+    expect(body.density).toBeDefined();
+  });
+});
+
+describe('GET /api/report', () => {
+  it('returns 400 when osm_id is missing', async () => {
+    const res = await app.request('/api/report');
+    expect(res.status).toBe(400);
+  });
+
+  it('generates HTML location report for an existing business', async () => {
+    // using known ID from businesses.csv
+    const res = await app.request('/api/report?osm_id=way/25699483');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/html');
+    const text = await res.text();
+    expect(text).toContain('Location Intelligence Report');
+    expect(text).toContain('Grade');
   });
 });

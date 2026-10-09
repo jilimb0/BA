@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location Intelligence Widget</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+    .widget-header { background: #1e1b4b; color: white; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+    .widget-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .widget-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: #4f46e5; color: white; }
+    #widgetMap { flex: 1; width: 100%; }
+    .widget-footer { background: white; border-top: 1px solid #e2e8f0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+    .stat-pill { background: #f1f5f9; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
+    .stat-pill strong { color: #4338ca; }
+    .btn-report { background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .grade-a { background: #dcfce7; color: #166534; }
+    .grade-b { background: #dbeafe; color: #1e40af; }
+    .grade-c { background: #fef3c7; color: #92400e; }
+    .grade-d { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <div class="widget-header">
+    <div class="widget-title">
+      <span>☕ C&amp;TLab Location Intelligence</span>
+    </div>
+    <div id="gradeBadge" class="widget-badge">Scoring...</div>
+  </div>
+
+  <div id="widgetMap"></div>
+
+  <div class="widget-footer">
+    <div style="display:flex; gap:8px;">
+      <span class="stat-pill">🚶 500m: <strong id="density500">—</strong></span>
+      <span class="stat-pill">🎯 Score: <strong id="scoreVal">—</strong>/100</span>
+    </div>
+    <a id="fullReportBtn" href="#" target="_blank" class="btn-report">Full Report ↗</a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const lat = parseFloat(params.get('lat') || '41.7151');
+    const lon = parseFloat(params.get('lon') || '44.8271');
+    const category = params.get('category') || 'cafe';
+    const group = params.get('group') || 'food';
+    const name = params.get('name') || 'Selected Location';
+
+    const map = L.map('widgetMap', { zoomControl: false }).setView([lat, lon], 15);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OSM'
+    }).addTo(map);
+
+    // 500m pedestrian circle
+    L.circle([lat, lon], {
+      radius: 500,
+      color: '#3b82f6',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.15,
+      weight: 2
+    }).addTo(map);
+
+    // 1000m extended circle
+    L.circle([lat, lon], {
+      radius: 1000,
+      color: '#8b5cf6',
+      fillColor: '#8b5cf6',
+      fillOpacity: 0.05,
+      weight: 1.5,
+      dashArray: '4, 4'
+    }).addTo(map);
+
+    // Center target marker
+    const marker = L.circleMarker([lat, lon], {
+      radius: 8,
+      fillColor: '#ef4444',
+      color: '#ffffff',
+      weight: 2,
+      fillOpacity: 1
+    }).addTo(map);
+    marker.bindPopup(`<strong>${name}</strong><br/>${category}`).openPopup();
+
+    // Fetch score from API
+    fetch(`/api/score?lat=${lat}&lon=${lon}&category=${encodeURIComponent(category)}&group=${encodeURIComponent(group)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.score) {
+          const score = data.score.score;
+          const rating = data.score.rating;
+          const badge = document.getElementById('gradeBadge');
+          badge.textContent = `Grade ${rating} (${score}/100)`;
+          badge.className = `widget-badge grade-${rating.toLowerCase()}`;
+          document.getElementById('scoreVal').textContent = score;
+          document.getElementById('density500').textContent = data.density.totalNearby500;
+        }
+      })
+      .catch(() => {
+        document.getElementById('gradeBadge').textContent = 'Score Ready';
+      });
+
+    document.getElementById('fullReportBtn').href = `/?lat=${lat}&lon=${lon}`;
+  </script>
+</body>
+</html>
