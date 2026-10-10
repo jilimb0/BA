@@ -144,3 +144,36 @@ describe('GET /api/report', () => {
     expect(text).toContain('Grade');
   });
 });
+
+describe('GET & POST /api/v1/score/location (Synergy Endpoint)', () => {
+  it('returns 400 when coordinates are missing', async () => {
+    const res = await app.request('/api/v1/score/location');
+    expect(res.status).toBe(400);
+  });
+
+  it('evaluates location score via GET query params', async () => {
+    const res = await app.request('/api/v1/score/location?lat=41.6976&lon=44.7978&category=cafe');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.overallScore).toBeGreaterThanOrEqual(0);
+    expect(body.overallScore).toBeLessThanOrEqual(100);
+    expect(body.footTrafficIndex).toBeDefined();
+    expect(body.transitAccessibility).toBeDefined();
+    expect(['low', 'moderate', 'high']).toContain(body.competitionDensity);
+    expect(body.details.recommendation).toBeDefined();
+  });
+
+  it('evaluates location score via POST JSON body', async () => {
+    const res = await app.request('/api/v1/score/location', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: 41.6976, lon: 44.7978, radiusMeters: 500, category: 'cafe' }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.overallScore).toBeGreaterThanOrEqual(0);
+    expect(body.footTrafficIndex).toBeGreaterThanOrEqual(0);
+    expect(body.details.lat).toBe(41.6976);
+  });
+});
+
