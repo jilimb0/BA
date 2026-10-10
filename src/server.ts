@@ -4,7 +4,7 @@ import { mkdtemp, readFile, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { logger } from 'hono/logger';
@@ -219,8 +219,8 @@ const locationScoreSchema = z.object({
   category: z.string().optional().default('cafe'),
 });
 
-const handleLocationScore = async (c: any) => {
-  let params: any;
+const handleLocationScore = async (c: Context) => {
+  let params: unknown;
   if (c.req.method === 'POST') {
     try {
       params = await c.req.json();
@@ -239,7 +239,7 @@ const handleLocationScore = async (c: any) => {
   const { lat, lon, category } = parsed.data;
   const target = { lat, lon, category, group: 'catering' };
 
-  let pois: ReferencePOI[] = [];
+  const pois: ReferencePOI[] = [];
   const csvPath = join(ROOT, 'businesses.csv');
   if (existsSync(csvPath)) {
     try {
@@ -267,14 +267,21 @@ const handleLocationScore = async (c: any) => {
 
   if (pois.length > 0) {
     const scoreResult = calculateLocationScore(target, pois);
-    const saturation = scoreResult.metrics.marketSaturation === 'oversaturated'
-      ? 'high'
-      : (scoreResult.metrics.marketSaturation as 'low' | 'moderate' | 'high');
+    const saturation =
+      scoreResult.metrics.marketSaturation === 'oversaturated'
+        ? 'high'
+        : (scoreResult.metrics.marketSaturation as 'low' | 'moderate' | 'high');
 
     return c.json({
       overallScore: scoreResult.score,
-      footTrafficIndex: Math.min(100, Math.round((scoreResult.metrics.footfallAttractors / 40) * 100)),
-      transitAccessibility: Math.min(100, Math.round((scoreResult.metrics.commercialMaturity / 20) * 100)),
+      footTrafficIndex: Math.min(
+        100,
+        Math.round((scoreResult.metrics.footfallAttractors / 40) * 100),
+      ),
+      transitAccessibility: Math.min(
+        100,
+        Math.round((scoreResult.metrics.commercialMaturity / 20) * 100),
+      ),
       competitionDensity: saturation,
       details: {
         lat,
@@ -291,7 +298,7 @@ const handleLocationScore = async (c: any) => {
   const overallScore = Math.min(95, Math.max(35, Math.round(55 + (coordHash % 40))));
   const footTrafficIndex = Math.min(95, Math.max(40, Math.round(50 + ((coordHash * 1.5) % 45))));
   const transitAccessibility = Math.min(90, Math.max(30, Math.round(45 + ((coordHash * 2) % 45))));
-  const saturation: 'low' | 'moderate' | 'high' = 
+  const saturation: 'low' | 'moderate' | 'high' =
     overallScore > 75 ? 'moderate' : overallScore > 55 ? 'low' : 'high';
 
   return c.json({
@@ -316,7 +323,6 @@ const handleLocationScore = async (c: any) => {
 
 app.get('/api/v1/score/location', handleLocationScore);
 app.post('/api/v1/score/location', handleLocationScore);
-
 
 // Interactive location intelligence report API
 app.get('/api/report', async (c) => {

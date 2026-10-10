@@ -154,7 +154,13 @@ describe('GET & POST /api/v1/score/location (Synergy Endpoint)', () => {
   it('evaluates location score via GET query params', async () => {
     const res = await app.request('/api/v1/score/location?lat=41.6976&lon=44.7978&category=cafe');
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as {
+      overallScore: number;
+      footTrafficIndex: number;
+      transitAccessibility: number;
+      competitionDensity: string;
+      details: { recommendation: string; lat: number };
+    };
     expect(body.overallScore).toBeGreaterThanOrEqual(0);
     expect(body.overallScore).toBeLessThanOrEqual(100);
     expect(body.footTrafficIndex).toBeDefined();
@@ -170,10 +176,13 @@ describe('GET & POST /api/v1/score/location (Synergy Endpoint)', () => {
       body: JSON.stringify({ lat: 41.6976, lon: 44.7978, radiusMeters: 500, category: 'cafe' }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as {
+      overallScore: number;
+      footTrafficIndex: number;
+      details: { lat: number };
+    };
     expect(body.overallScore).toBeGreaterThanOrEqual(0);
     expect(body.footTrafficIndex).toBeGreaterThanOrEqual(0);
     expect(body.details.lat).toBe(41.6976);
   });
 });
-
