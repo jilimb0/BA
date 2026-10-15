@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /widget.html
+Disallow: /raw.geojson
+Disallow: /businesses.csv
+Disallow: /uploads/
+
+Sitemap: https://business-analyzer.app/sitemap.xml

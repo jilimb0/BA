@@ -25,24 +25,13 @@
 
 ## 2. Пошаговый план внедрения (Action Plan)
 
-- [ ] **Шаг 1 (P0): Полная замена заголовков и метаданных в `public/index.html`**
-  ```html
-  <title>Business Analyzer — Location Intelligence & Catchment Area Scoring</title>
-  <meta name="description" content="Интерактивная платформа пространственного анализа бизнеса на базе OpenStreetMap. Оценка пешеходного трафика, индекса конкуренции и коммерческого потенциала локаций." />
-  <meta name="keywords" content="location intelligence, geomarketing, openstreetmap business, catchment area, foot traffic analytics" />
-  <link rel="canonical" href="https://business-analyzer.app/" />
+- [x] **Шаг 1 (P0): Полная замена заголовков и метаданных в `public/index.html`**
+  - Добавлены `title` ("Location Intelligence"), `meta description`, `keywords`, `canonical`, Open Graph и Twitter Cards.
+  - Создан брендированный растровый баннер `public/og-map.png` (1200×630).
 
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Business Analyzer — Location Intelligence & Catchment Scoring" />
-  <meta property="og:description" content="Анализ локаций, конкурентов и плотности торговых точек для открытия успешного бизнеса." />
-  <meta property="og:image" content="https://business-analyzer.app/og-map.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  ```
+- [x] **Шаг 2 (P1): Создание `public/robots.txt` и `public/sitemap.xml`**
+  - Разрешена индексация главной и виджета (`/widget.html`), закрыты тяжелые гео-файлы (`/raw.geojson`, `businesses.csv`).
+  - Создан `sitemap.xml`.
 
-- [ ] **Шаг 2 (P1): Создание `public/robots.txt` и `public/sitemap.xml`**
-  - Разрешить индексацию главной витрины и виджета (`/widget.html`).
-  - Закрыть сырые выгрузки данных (`/raw.geojson`, `businesses.csv`, `/uploads/`).
-
-- [ ] **Шаг 3 (P2): Внедрение Schema.org `SoftwareApplication`**
-  - Указать категорию `BusinessApplication`.
+- [x] **Шаг 3 (P2): Внедрение Schema.org `SoftwareApplication`**
+  - Добавлена микроразметка `BusinessApplication`.
