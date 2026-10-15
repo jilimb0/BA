@@ -518,23 +518,30 @@ app.onError((err, c) => {
 });
 
 export { app };
+export default app;
 
 // Graceful shutdown
 let server: ReturnType<typeof serve> | null = null;
 
 const port = Number(process.env.PORT ?? 3000);
-server = serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`BA running on http://localhost:${info.port}`);
-});
+if (
+  process.env.SERVERLESS !== 'true' &&
+  process.env.NODE_ENV !== 'test' &&
+  process.env.PORT !== '0'
+) {
+  server = serve({ fetch: app.fetch, port }, (info) => {
+    console.log(`BA running on http://localhost:${info.port}`);
+  });
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down...');
-  server?.close();
-  process.exit(0);
-});
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down...');
+    server?.close();
+    process.exit(0);
+  });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down...');
-  server?.close();
-  process.exit(0);
-});
+  process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down...');
+    server?.close();
+    process.exit(0);
+  });
+}
