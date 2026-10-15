@@ -406,6 +406,40 @@ app.get('/api/report', async (c) => {
   return c.html(html);
 });
 
+// Telegram Bot Webhook endpoint powered by @tgwrapper/core
+app.post('/api/bot/webhook', async (c) => {
+  try {
+    const update = await c.req.json();
+    const token = process.env.BOT_TOKEN || 'dummy-token';
+    const { createBotClient, handleGeoScorerUpdate } = await import('./bot/geo-scorer-bot.js');
+    const bot = createBotClient({ token });
+    if (process.env.NODE_ENV === 'test' || token === 'dummy-token') {
+      bot.sendMessage = async () => ({ message_id: 1 }) as any;
+    }
+    const handled = await handleGeoScorerUpdate(update, bot);
+    return c.json({ ok: true, handled });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ ok: false, error: message }, 400);
+  }
+});
+
+// Telegram Mini App (TMA) InitData validation endpoint
+app.post('/api/tma/validate', async (c) => {
+  try {
+    const body = await c.req.json();
+    const initData = body.initData || '';
+    const token = process.env.BOT_TOKEN || 'test-token';
+    const { validateInitData, parseInitData } = await import('@tgwrapper/core');
+    const isValid = validateInitData(initData, token);
+    const parsed = isValid ? parseInitData(initData) : null;
+    return c.json({ ok: true, valid: isValid, data: parsed });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ ok: false, error: message }, 400);
+  }
+});
+
 // Not-found handler (routes that don't match any static file or endpoint)
 app.notFound((c) => {
   return c.json({ ok: false, error: 'Not found' }, 404);

@@ -186,3 +186,37 @@ describe('GET & POST /api/v1/score/location (Synergy Endpoint)', () => {
     expect(body.details.lat).toBe(41.6976);
   });
 });
+
+describe('POST /api/bot/webhook', () => {
+  it('handles update and returns ok: true', async () => {
+    const res = await app.request('/api/bot/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        update_id: 100,
+        message: {
+          message_id: 1,
+          chat: { id: 12345 },
+          text: '/start',
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean };
+    expect(body.ok).toBe(true);
+  });
+});
+
+describe('POST /api/tma/validate', () => {
+  it('returns valid: false for invalid initData', async () => {
+    const res = await app.request('/api/tma/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: 'invalid_data' }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; valid: boolean };
+    expect(body.ok).toBe(true);
+    expect(body.valid).toBe(false);
+  });
+});

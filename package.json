@@ -27,6 +27,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.4",
+    "@tgwrapper/core": "^0.20.1",
+    "@ui-construction-library/core": "^0.9.0",
     "hono": "^4.13.13",
     "zod": "^4.6.5"
   },
