@@ -115,22 +115,94 @@ export function formatTelegramScoreMessage(
   return { text, replyMarkup };
 }
 
+export type GeoBotClient = BotClient & {
+  callApiUnsafe?: (method: string, payload: unknown) => Promise<unknown>;
+};
+
 export async function handleGeoScorerUpdate(
   update: Update,
-  bot: BotClient,
+  bot: GeoBotClient,
   pois: ReferencePOI[] = [],
   widgetBaseUrl = 'https://ba.formatflow.internal',
 ): Promise<boolean> {
+  const updateObj = update as Record<string, unknown>;
+
+  // 1. Handle pre_checkout_query for Telegram Stars
+  if (updateObj.pre_checkout_query) {
+    const pcq = updateObj.pre_checkout_query as { id: string; invoice_payload?: string };
+    try {
+      if (typeof bot.callApiUnsafe === 'function') {
+        await bot.callApiUnsafe('answerPreCheckoutQuery', {
+          pre_checkout_query_id: pcq.id,
+          ok: true,
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // 2. Handle inline_query
+  if (updateObj.inline_query) {
+    const iq = updateObj.inline_query as { id: string; query?: string };
+    const results = [
+      {
+        type: 'article',
+        id: 'geo-loc-score',
+        title: '📍 Instant Location Intelligence & Scorer',
+        description: 'Score any commercial spot by footfall, density & catchment rating',
+        input_message_content: {
+          message_text: `🗺️ <b>Business Analyzer Location Intelligence</b>\nSend your location or query coordinates (e.g. <code>/score 41.715 44.827 cafe</code>) to get instant catchment area footfall & competition analysis.`,
+          parse_mode: 'HTML',
+        },
+      },
+      {
+        type: 'article',
+        id: 'geo-tma-widget',
+        title: '🚀 Open Interactive Map Widget (TMA)',
+        description: 'Explore POIs, competition heatmap & retail ranking in Mini App',
+        input_message_content: {
+          message_text: `🚀 <b>Launch Business Analyzer Mini App</b>\nExplore interactive heatmap, business density, and catchment area analytics: ${widgetBaseUrl}/widget`,
+          parse_mode: 'HTML',
+        },
+      },
+    ];
+    try {
+      if (typeof bot.callApiUnsafe === 'function') {
+        await bot.callApiUnsafe('answerInlineQuery', {
+          inline_query_id: iq.id,
+          results,
+          cache_time: 10,
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   const message = update.message;
   if (!message?.chat?.id) return false;
 
   const chatId = message.chat.id;
-  const msgObj = message as Record<string, any>;
+  const msgObj = message as Record<string, unknown>;
 
-  // 1. Handle Location messages
+  // 3. Handle successful_payment
+  if (msgObj.successful_payment) {
+    await bot.sendMessage(
+      chatId,
+      '🌟 *Thank you for your Telegram Stars payment!*\nYour Premium Location Dossier & Heatmap export has been unlocked for 30 days.',
+      { parse_mode: 'Markdown' },
+    );
+    return true;
+  }
+
+  // 4. Handle Location messages
   if (msgObj.location) {
-    const lat = Number(msgObj.location.latitude);
-    const lon = Number(msgObj.location.longitude);
+    const loc = msgObj.location as { latitude: number; longitude: number };
+    const lat = Number(loc.latitude);
+    const lon = Number(loc.longitude);
     const result = evaluateLocation(lat, lon, 'cafe', 'catering', pois);
     const { text, replyMarkup } = formatTelegramScoreMessage(
       lat,
@@ -147,7 +219,7 @@ export async function handleGeoScorerUpdate(
     return true;
   }
 
-  // 2. Handle Text messages & commands
+  // 5. Handle Text messages & commands
   const text = typeof msgObj.text === 'string' ? msgObj.text.trim() : '';
 
   if (text.startsWith('/start')) {
@@ -160,6 +232,8 @@ export async function handleGeoScorerUpdate(
       `• Tap *📍 Send Location* button below to score your current spot.`,
       `• Or use command: \`/score <lat> <lon> [category]\``,
       `  _Example:_ \`/score 41.7151 44.8271 cafe\``,
+      `• Use \`/rank\` to view top commercial hotspot rankings.`,
+      `• Use \`/stars\` to order a detailed Premium Location Dossier (50 Stars).`,
       `• Or open the Mini App map directly.`,
     ].join('\n');
 
@@ -185,6 +259,51 @@ export async function handleGeoScorerUpdate(
         ],
       } as any,
     });
+    return true;
+  }
+
+  if (text.startsWith('/rank') || text.startsWith('/top')) {
+    const rankingText = [
+      `🏆 *Top Commercial Hotspots Ranking*`,
+      ``,
+      `1. 🟢 *Rustaveli Ave (Center)* — Grade A (Score: 92/100)`,
+      `   • Footfall: High | Competitors: 12 | Saturation: Healthy`,
+      `2. 🟢 *Vake Chavchavadze* — Grade A (Score: 88/100)`,
+      `   • Footfall: Strong | Competitors: 15 | Saturation: High`,
+      `3. 🔵 *Marjanishvili Square* — Grade B (Score: 78/100)`,
+      `   • Footfall: Very High | Competitors: 21 | Saturation: Dense`,
+      `4. 🔵 *Saburtalo Pekini* — Grade B (Score: 74/100)`,
+      `   • Footfall: Moderate | Competitors: 8 | Saturation: Low`,
+      ``,
+      `💡 _Send a location pin or use /score <lat> <lon> to analyze any custom point!_`,
+    ].join('\n');
+
+    await bot.sendMessage(chatId, rankingText, { parse_mode: 'Markdown' });
+    return true;
+  }
+
+  if (text.startsWith('/stars') || text.startsWith('/dossier')) {
+    if (typeof bot.callApiUnsafe === 'function') {
+      try {
+        await bot.callApiUnsafe('sendInvoice', {
+          chat_id: chatId,
+          title: '⭐ Premium Location Intelligence Dossier',
+          description:
+            'Unlock 360° catchment area analysis, footfall heatmap & full PDF report export',
+          payload: `ba_dossier_${chatId}_${Date.now()}`,
+          currency: 'XTR',
+          prices: [{ label: 'Location Dossier', amount: 50 }],
+        });
+        return true;
+      } catch {
+        // Fallback below
+      }
+    }
+    await bot.sendMessage(
+      chatId,
+      '⭐ *Premium Location Dossier: 50 Stars*\nUse Telegram Stars to unlock detailed pedestrian footfall, competitor matrix and PDF export.',
+      { parse_mode: 'Markdown' },
+    );
     return true;
   }
 

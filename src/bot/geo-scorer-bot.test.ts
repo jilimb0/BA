@@ -119,4 +119,128 @@ describe('GeoScorerBot', () => {
       expect.anything(),
     );
   });
+
+  it('handles /rank command', async () => {
+    const bot = {
+      sendMessage: vi.fn().mockResolvedValue({ message_id: 126 }),
+    } as any;
+
+    const update = {
+      update_id: 4,
+      message: {
+        message_id: 13,
+        chat: { id: 9999, type: 'private' },
+        text: '/rank',
+      },
+    } as any;
+
+    const handled = await handleGeoScorerUpdate(update, bot);
+    expect(handled).toBe(true);
+    expect(bot.sendMessage).toHaveBeenCalledWith(
+      9999,
+      expect.stringContaining('Top Commercial Hotspots Ranking'),
+      expect.anything(),
+    );
+  });
+
+  it('handles /stars command with invoice sending', async () => {
+    const bot = {
+      sendMessage: vi.fn().mockResolvedValue({ message_id: 127 }),
+      callApiUnsafe: vi.fn().mockResolvedValue({ ok: true }),
+    } as any;
+
+    const update = {
+      update_id: 5,
+      message: {
+        message_id: 14,
+        chat: { id: 9999, type: 'private' },
+        text: '/stars',
+      },
+    } as any;
+
+    const handled = await handleGeoScorerUpdate(update, bot);
+    expect(handled).toBe(true);
+    expect(bot.callApiUnsafe).toHaveBeenCalledWith(
+      'sendInvoice',
+      expect.objectContaining({
+        currency: 'XTR',
+        prices: [{ label: 'Location Dossier', amount: 50 }],
+      }),
+    );
+  });
+
+  it('handles pre_checkout_query approval', async () => {
+    const bot = {
+      callApiUnsafe: vi.fn().mockResolvedValue({ ok: true }),
+    } as any;
+
+    const update = {
+      update_id: 6,
+      pre_checkout_query: {
+        id: 'pcq_123',
+        invoice_payload: 'ba_dossier_test',
+      },
+    } as any;
+
+    const handled = await handleGeoScorerUpdate(update, bot);
+    expect(handled).toBe(true);
+    expect(bot.callApiUnsafe).toHaveBeenCalledWith(
+      'answerPreCheckoutQuery',
+      expect.objectContaining({
+        pre_checkout_query_id: 'pcq_123',
+        ok: true,
+      }),
+    );
+  });
+
+  it('handles inline_query', async () => {
+    const bot = {
+      callApiUnsafe: vi.fn().mockResolvedValue({ ok: true }),
+    } as any;
+
+    const update = {
+      update_id: 7,
+      inline_query: {
+        id: 'iq_456',
+        query: '41.715 44.827',
+      },
+    } as any;
+
+    const handled = await handleGeoScorerUpdate(update, bot);
+    expect(handled).toBe(true);
+    expect(bot.callApiUnsafe).toHaveBeenCalledWith(
+      'answerInlineQuery',
+      expect.objectContaining({
+        inline_query_id: 'iq_456',
+        results: expect.any(Array),
+      }),
+    );
+  });
+
+  it('handles successful_payment confirmation', async () => {
+    const bot = {
+      sendMessage: vi.fn().mockResolvedValue({ message_id: 128 }),
+    } as any;
+
+    const update = {
+      update_id: 8,
+      message: {
+        message_id: 15,
+        chat: { id: 9999, type: 'private' },
+        successful_payment: {
+          currency: 'XTR',
+          total_amount: 50,
+          invoice_payload: 'ba_dossier_test',
+        },
+      },
+    } as any;
+
+    const handled = await handleGeoScorerUpdate(update, bot);
+    expect(handled).toBe(true);
+    expect(bot.sendMessage).toHaveBeenCalledWith(
+      9999,
+      expect.stringContaining('Thank you for your Telegram Stars payment'),
+      expect.anything(),
+    );
+  });
 });

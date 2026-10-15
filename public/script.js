@@ -8,6 +8,8 @@ let sortCol = "location_score"
 let sortDir = -1
 let page = 1
 const PAGE_SIZE = 100
+let currentRadius = 500
+let currentSelectedCoords = null
 
 const GROUP_EMOJI = {
   food: "🍽",
@@ -415,22 +417,23 @@ function updateMapMarkers() {
   }
 }
 
-function drawCatchmentCircles(lat, lon) {
+function drawCatchmentCircles(lat, lon, radius = currentRadius) {
   if (!map || !circlesLayer) return
+  currentSelectedCoords = { lat, lon }
   circlesLayer.clearLayers()
 
-  // 500m circle (walking catchment)
+  // Selected radius circle (primary catchment)
   L.circle([lat, lon], {
-    radius: 500,
+    radius: radius,
     color: "#3b82f6",
     fillColor: "#3b82f6",
-    fillOpacity: 0.12,
+    fillOpacity: 0.14,
     weight: 2,
   }).addTo(circlesLayer)
 
-  // 1000m circle (extended catchment)
+  // Extended catchment circle (2x radius)
   L.circle([lat, lon], {
-    radius: 1000,
+    radius: radius * 2,
     color: "#8b5cf6",
     fillColor: "#8b5cf6",
     fillOpacity: 0.05,
@@ -659,9 +662,22 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Copied"
       setTimeout(() => (btn.textContent = prev), 1200)
     })
-  document
-    .querySelector("#generateModal .modal-backdrop")
-    .addEventListener("click", closeModal)
+  const radiusSlider = document.getElementById("radiusSlider")
+  const radiusLabel = document.getElementById("radiusLabel")
+  const thDensity = document.getElementById("th-density")
+
+  radiusSlider?.addEventListener("input", (e) => {
+    currentRadius = Number(e.target.value) || 500
+    if (radiusLabel) radiusLabel.textContent = `${currentRadius}m`
+    if (thDensity) thDensity.textContent = `Density (${currentRadius}m) ↕`
+    if (currentSelectedCoords) {
+      drawCatchmentCircles(
+        currentSelectedCoords.lat,
+        currentSelectedCoords.lon,
+        currentRadius,
+      )
+    }
+  })
 
   loadCSV()
 })

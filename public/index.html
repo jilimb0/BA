@@ -90,6 +90,10 @@
             type="checkbox"><span class="tri-state">Empty</span></div>
         <div class="field-card" data-field-card="favorite"><label>Favorites</label><input class="tri-check"
             data-field="favorite" type="checkbox"><span class="tri-state">Empty</span></div>
+        <div class="field-card radius-card" style="display:flex; align-items:center; gap:8px;">
+          <label for="radiusSlider" style="font-size:12px; font-weight:600; white-space:nowrap;">Radius: <span id="radiusLabel" style="color:#4f46e5;">500m</span></label>
+          <input type="range" id="radiusSlider" min="100" max="2000" step="100" value="500" style="width:90px; accent-color:#4f46e5; cursor:pointer;">
+        </div>
         <button id="openGenerateModal" class="page-btn" type="button">Generate list</button>
       </div>
 
