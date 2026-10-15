@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -20,6 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const UPLOAD_DIR = join(ROOT, 'uploads');
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+let isGenerating = false;
 
 if (!existsSync(UPLOAD_DIR)) {
   mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -27,7 +29,29 @@ if (!existsSync(UPLOAD_DIR)) {
 
 const app = new Hono();
 
-app.use('*', cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
+  : ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://web.telegram.org'];
+
+app.use(
+  '*',
+  cors({
+    origin: (origin) => {
+      if (!origin) return '*';
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return origin;
+      if (origin.endsWith('.telegram.org')) return origin;
+      return null;
+    },
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-admin-key',
+      'x-telegram-init-data',
+      'x-telegram-bot-api-secret-token',
+    ],
+  }),
+);
 app.use('*', logger());
 
 // Health check
@@ -86,6 +110,33 @@ const _generateSchema = z.object({
 });
 
 app.post('/generate', async (c) => {
+  // 1. Check admin authorization
+  const expectedKey = process.env.ADMIN_API_KEY || process.env.API_SECRET;
+  if (expectedKey) {
+    const authHeader = c.req.header('authorization') || '';
+    const adminKey = c.req.header('x-admin-key') || '';
+    const bearerKey = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : '';
+    const incomingKey = bearerKey || adminKey;
+    const a = Buffer.from(incomingKey);
+    const b = Buffer.from(expectedKey);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new HTTPException(401, { message: 'Unauthorized: valid admin API key required' });
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new HTTPException(500, {
+      message: 'Server configuration error: ADMIN_API_KEY is not set',
+    });
+  }
+
+  // 2. Prevent concurrent heavy processing
+  if (isGenerating) {
+    throw new HTTPException(429, {
+      message: 'Another dataset generation is in progress. Please retry later.',
+    });
+  }
+
   const formData = await c.req.formData();
   const file = formData.get('inputFile');
 
@@ -101,6 +152,7 @@ app.post('/generate', async (c) => {
     throw new HTTPException(400, { message: 'File too large (max 50MB)' });
   }
 
+  isGenerating = true;
   const tmpDir = await mkdtemp(join(UPLOAD_DIR, 'upload-'));
   const inputPath = join(tmpDir, 'input.geojson');
   const outputPath = join(ROOT, 'businesses.csv');
@@ -143,6 +195,7 @@ app.post('/generate', async (c) => {
     try {
       unlink(tmpDir).catch(() => {});
     } catch {}
+    isGenerating = false;
   }
 });
 
@@ -409,6 +462,15 @@ app.get('/api/report', async (c) => {
 // Telegram Bot Webhook endpoint powered by @tgwrapper/core
 app.post('/api/bot/webhook', async (c) => {
   try {
+    const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
+    const receivedSecret =
+      c.req.header('x-telegram-bot-api-secret-token') ||
+      c.req.header('x-telegram-bot-secret-token');
+
+    if (expectedSecret && receivedSecret !== expectedSecret) {
+      throw new HTTPException(401, { message: 'Unauthorized: invalid secret token' });
+    }
+
     const update = await c.req.json();
     const token = process.env.BOT_TOKEN || 'dummy-token';
     const { createBotClient, handleGeoScorerUpdate } = await import('./bot/geo-scorer-bot.js');
@@ -419,6 +481,7 @@ app.post('/api/bot/webhook', async (c) => {
     const handled = await handleGeoScorerUpdate(update, bot);
     return c.json({ ok: true, handled });
   } catch (err: unknown) {
+    if (err instanceof HTTPException) throw err;
     const message = err instanceof Error ? err.message : 'Unknown error';
     return c.json({ ok: false, error: message }, 400);
   }

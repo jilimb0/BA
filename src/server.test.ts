@@ -81,6 +81,37 @@ describe('POST /generate', () => {
     expect(body.ok).toBe(false);
     expect(body.error).toContain('too large');
   });
+
+  it('rejects /generate when ADMIN_API_KEY is configured and token is invalid', async () => {
+    process.env.ADMIN_API_KEY = 'secret-admin-key-xyz';
+    const formData = new FormData();
+    const res = await app.request('/generate', {
+      method: 'POST',
+      headers: {
+        'x-admin-key': 'wrong-key',
+      },
+      body: formData,
+    });
+    expect(res.status).toBe(401);
+    delete process.env.ADMIN_API_KEY;
+  });
+
+  it('allows /generate auth check to pass when valid ADMIN_API_KEY is provided', async () => {
+    process.env.ADMIN_API_KEY = 'secret-admin-key-xyz';
+    const formData = new FormData();
+    const res = await app.request('/generate', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer secret-admin-key-xyz',
+      },
+      body: formData,
+    });
+    // Fails on missing file (400) rather than auth (401)
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as ApiResponse;
+    expect(body.error).toBe('GeoJSON file is required');
+    delete process.env.ADMIN_API_KEY;
+  });
 });
 
 describe('Static files', () => {
