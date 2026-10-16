@@ -147,6 +147,8 @@ describe('GET /api/score', () => {
   it('calculates score and density for coordinates in dataset', async () => {
     const res = await app.request('/api/score?lat=41.6976&lon=44.7978&category=cafe&group=food');
     expect(res.status).toBe(200);
+    expect(res.headers.get('RateLimit-Limit')).toBeDefined();
+    expect(res.headers.get('X-Cache')).toBeDefined();
     const body = (await res.json()) as {
       ok: boolean;
       score: { score: number; rating: string };
@@ -156,6 +158,13 @@ describe('GET /api/score', () => {
     expect(body.score).toBeDefined();
     expect(body.score.score).toBeGreaterThan(0);
     expect(body.density).toBeDefined();
+
+    // Repeated call should be served from spatial geohash cache (X-Cache: HIT)
+    const resCached = await app.request(
+      '/api/score?lat=41.6976&lon=44.7978&category=cafe&group=food',
+    );
+    expect(resCached.status).toBe(200);
+    expect(resCached.headers.get('X-Cache')).toBe('HIT');
   });
 });
 

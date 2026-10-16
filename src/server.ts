@@ -16,6 +16,8 @@ import {
   calculateLocationScore,
   generateLocationReportHtml,
 } from './analyzer.js';
+import { createRateLimiter } from './middleware/rate-limiter.js';
+import { globalPoiDatasetCache, globalSpatialCache } from './services/spatial-cache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -53,6 +55,40 @@ app.use(
   }),
 );
 app.use('*', logger());
+
+// Rate limiting to protect compute-heavy spatial scoring and report generation
+app.use(
+  '/api/score',
+  createRateLimiter({
+    windowMs: 60 * 1000,
+    maxRequests: 120,
+    message: 'Score evaluation rate limit exceeded. Please retry in a moment.',
+  }),
+);
+app.use(
+  '/api/v1/score/*',
+  createRateLimiter({
+    windowMs: 60 * 1000,
+    maxRequests: 120,
+    message: 'Location score rate limit exceeded. Please retry in a moment.',
+  }),
+);
+app.use(
+  '/api/report',
+  createRateLimiter({
+    windowMs: 60 * 1000,
+    maxRequests: 60,
+    message: 'Report generation rate limit exceeded. Please retry in a moment.',
+  }),
+);
+app.use(
+  '/generate',
+  createRateLimiter({
+    windowMs: 60 * 1000,
+    maxRequests: 10,
+    message: 'Dataset generation rate limit exceeded. Please retry in a moment.',
+  }),
+);
 
 // Health check
 app.get('/health', (c) => {
@@ -182,8 +218,13 @@ app.post('/generate', async (c) => {
         stderr += d.toString();
       });
       child.on('close', (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(stderr || `process exited with ${code}`));
+        if (code === 0) {
+          globalPoiDatasetCache.invalidate();
+          globalSpatialCache.clear();
+          resolve();
+        } else {
+          reject(new Error(stderr || `process exited with ${code}`));
+        }
       });
     });
 
@@ -219,31 +260,9 @@ app.get('/api/score', async (c) => {
     throw new HTTPException(404, { message: 'businesses.csv not generated yet' });
   }
 
-  const csvContent = await readFile(csvPath, 'utf-8');
-  const lines = csvContent.split('\n').filter(Boolean);
-  if (lines.length <= 1) {
+  const { pois } = await globalPoiDatasetCache.getDataset(csvPath);
+  if (pois.length === 0) {
     throw new HTTPException(400, { message: 'No businesses found in dataset' });
-  }
-
-  const header = lines[0].split(',');
-  const latIdx = header.indexOf('lat');
-  const lonIdx = header.indexOf('lon');
-  const catIdx = header.indexOf('category');
-  const grpIdx = header.indexOf('group');
-
-  const pois: ReferencePOI[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',');
-    const lat = Number.parseFloat(parts[latIdx]);
-    const lon = Number.parseFloat(parts[lonIdx]);
-    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
-      pois.push({
-        lat,
-        lon,
-        category: parts[catIdx],
-        group: parts[grpIdx],
-      });
-    }
   }
 
   const target = {
@@ -254,7 +273,18 @@ app.get('/api/score', async (c) => {
   };
 
   const density = calculateDensity(target, pois);
-  const scoreResult = calculateLocationScore(target, pois);
+  const cacheCategory = target.category ?? 'all';
+  const cacheGroup = target.group ?? 'all';
+
+  let scoreResult = globalSpatialCache.get(target.lat, target.lon, cacheCategory, cacheGroup);
+  let isHit = true;
+  if (!scoreResult) {
+    isHit = false;
+    scoreResult = calculateLocationScore(target, pois);
+    globalSpatialCache.set(target.lat, target.lon, cacheCategory, cacheGroup, scoreResult);
+  }
+
+  c.header('X-Cache', isHit ? 'HIT' : 'MISS');
 
   return c.json({
     ok: true,
@@ -292,34 +322,28 @@ const handleLocationScore = async (c: Context) => {
   const { lat, lon, category } = parsed.data;
   const target = { lat, lon, category, group: 'catering' };
 
-  const pois: ReferencePOI[] = [];
   const csvPath = join(ROOT, 'businesses.csv');
+  let pois: ReferencePOI[] = [];
   if (existsSync(csvPath)) {
     try {
-      const csvContent = await readFile(csvPath, 'utf-8');
-      const lines = csvContent.split('\n').filter(Boolean);
-      if (lines.length > 1) {
-        const header = lines[0].split(',');
-        const latIdx = header.indexOf('lat');
-        const lonIdx = header.indexOf('lon');
-        const catIdx = header.indexOf('category');
-        const grpIdx = header.indexOf('group');
-        for (let i = 1; i < lines.length; i++) {
-          const parts = lines[i].split(',');
-          const pLat = Number.parseFloat(parts[latIdx]);
-          const pLon = Number.parseFloat(parts[lonIdx]);
-          if (!Number.isNaN(pLat) && !Number.isNaN(pLon)) {
-            pois.push({ lat: pLat, lon: pLon, category: parts[catIdx], group: parts[grpIdx] });
-          }
-        }
-      }
+      const dataset = await globalPoiDatasetCache.getDataset(csvPath);
+      pois = dataset.pois;
     } catch {
       // fallback to algorithmic scoring
     }
   }
 
   if (pois.length > 0) {
-    const scoreResult = calculateLocationScore(target, pois);
+    const cacheCat = category || 'all';
+    let scoreResult = globalSpatialCache.get(lat, lon, cacheCat, 'catering');
+    let isHit = true;
+    if (!scoreResult) {
+      isHit = false;
+      scoreResult = calculateLocationScore(target, pois);
+      globalSpatialCache.set(lat, lon, cacheCat, 'catering', scoreResult);
+    }
+    c.header('X-Cache', isHit ? 'HIT' : 'MISS');
+
     const saturation =
       scoreResult.metrics.marketSaturation === 'oversaturated'
         ? 'high'
@@ -389,73 +413,28 @@ app.get('/api/report', async (c) => {
     throw new HTTPException(404, { message: 'businesses.csv not generated yet' });
   }
 
-  const csvContent = await readFile(csvPath, 'utf-8');
-  const lines = csvContent.split('\n').filter(Boolean);
-  const header = lines[0].split(',');
-  const idIdx = header.indexOf('osm_id');
-  const latIdx = header.indexOf('lat');
-  const lonIdx = header.indexOf('lon');
-  const catIdx = header.indexOf('category');
-  const grpIdx = header.indexOf('group');
+  const { pois, rows } = await globalPoiDatasetCache.getDataset(csvPath);
+  const matchedBusiness = rows.find((r) => r.osmId === osmId || r.osmId === `"${osmId}"`);
 
-  let matchedLine: string | null = null;
-  const pois: ReferencePOI[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',');
-    if (parts[idIdx] === osmId || parts[idIdx] === `"${osmId}"`) {
-      matchedLine = lines[i];
-    }
-    const lat = Number.parseFloat(parts[latIdx]);
-    const lon = Number.parseFloat(parts[lonIdx]);
-    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
-      pois.push({
-        lat,
-        lon,
-        category: parts[catIdx],
-        group: parts[grpIdx],
-      });
-    }
-  }
-
-  if (!matchedLine) {
+  if (!matchedBusiness) {
     throw new HTTPException(404, { message: `Business with osm_id ${osmId} not found` });
   }
 
-  const cols = matchedLine.split(',');
-  const getCol = (name: string) => {
-    const idx = header.indexOf(name);
-    return idx >= 0 ? (cols[idx] ?? '') : '';
-  };
-
-  const businessRow: BusinessRow = {
-    osmId: getCol('osm_id'),
-    name: getCol('name'),
-    tagKey: getCol('tag_key'),
-    category: getCol('category'),
-    group: getCol('group'),
-    lat: getCol('lat'),
-    lon: getCol('lon'),
-    street: getCol('street'),
-    housenumber: getCol('housenumber'),
-    phone: getCol('phone'),
-    website: getCol('website'),
-    openingHours: getCol('opening_hours'),
-    cuisine: getCol('cuisine'),
-    brand: getCol('brand'),
-  };
-
   const target = {
-    lat: Number.parseFloat(businessRow.lat),
-    lon: Number.parseFloat(businessRow.lon),
-    category: businessRow.category,
-    group: businessRow.group,
+    lat: Number.parseFloat(matchedBusiness.lat),
+    lon: Number.parseFloat(matchedBusiness.lon),
+    category: matchedBusiness.category,
+    group: matchedBusiness.group,
   };
 
   const density = calculateDensity(target, pois);
-  const scoreResult = calculateLocationScore(target, pois);
+  let scoreResult = globalSpatialCache.get(target.lat, target.lon, target.category, target.group);
+  if (!scoreResult) {
+    scoreResult = calculateLocationScore(target, pois);
+    globalSpatialCache.set(target.lat, target.lon, target.category, target.group, scoreResult);
+  }
 
-  const html = generateLocationReportHtml(businessRow, density, scoreResult);
+  const html = generateLocationReportHtml(matchedBusiness, density, scoreResult);
   return c.html(html);
 });
 
@@ -511,6 +490,9 @@ app.notFound((c) => {
 // Error handling
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
+    if (err.res) {
+      return err.res;
+    }
     return c.json({ ok: false, error: err.message }, err.status);
   }
   console.error('Unhandled error:', err);
