@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -55,6 +55,14 @@ app.use(
   }),
 );
 app.use('*', logger());
+app.use('*', async (c, next) => {
+  const correlationId =
+    c.req.header('x-correlation-id') || c.req.header('x-request-id') || randomUUID();
+  await next();
+  c.header('X-Correlation-ID', correlationId);
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+});
 
 // Rate limiting to protect compute-heavy spatial scoring and report generation
 app.use(
@@ -91,13 +99,15 @@ app.use(
 );
 
 // Health check
-app.get('/health', (c) => {
+const healthHandler = (c: Context) => {
   return c.json({
     status: 'ok',
     project: 'business-analyzer',
     timestamp: new Date().toISOString(),
   });
-});
+};
+app.get('/health', healthHandler);
+app.get('/healthz', healthHandler);
 
 // MIME type map
 const MIME: Record<string, string> = {

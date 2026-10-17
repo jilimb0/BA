@@ -27,14 +27,32 @@ node/12345,Test Cafe,amenity,cafe,food,41.697500,44.797700,Rustaveli Ave,12,,,,,
 
 const { app } = await import('./server.js');
 
-describe('GET /health', () => {
-  it('returns 200 with status ok', async () => {
+describe('GET /health and /healthz', () => {
+  it('returns 200 with status ok on /health', async () => {
     const res = await app.request('/health');
     expect(res.status).toBe(200);
+    expect(res.headers.get('x-correlation-id')).toBeDefined();
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     const body = (await res.json()) as ApiResponse;
     expect(body.status).toBe('ok');
     expect(body.project).toBe('business-analyzer');
     expect(body.timestamp).toBeDefined();
+  });
+
+  it('returns 200 with status ok on /healthz', async () => {
+    const res = await app.request('/healthz');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as ApiResponse;
+    expect(body.status).toBe('ok');
+    expect(body.project).toBe('business-analyzer');
+  });
+
+  it('echoes incoming x-correlation-id', async () => {
+    const customId = 'custom-correlation-12345';
+    const res = await app.request('/health', {
+      headers: { 'x-correlation-id': customId },
+    });
+    expect(res.headers.get('x-correlation-id')).toBe(customId);
   });
 });
 
