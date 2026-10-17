@@ -112,10 +112,10 @@ for (const [g, cats] of Object.entries(summary).sort()) {
 }
 writeFileSync(OUTPUT_SUMMARY, summaryRows.join('\n'), 'utf-8');
 
-console.log(`\n✅ ${CITY_NAME}: ${rows.length}`);
-console.log(`🗑️  Skipped: ${skipped}`);
-console.log(`📄 → ${OUTPUT_CSV}`);
-console.log(`📊 → ${OUTPUT_SUMMARY}\n`);
+console.info(`\n✅ ${CITY_NAME}: ${rows.length}`);
+console.info(`🗑️  Skipped: ${skipped}`);
+console.info(`📄 → ${OUTPUT_CSV}`);
+console.info(`📊 → ${OUTPUT_SUMMARY}\n`);
 
 console.table(
   Object.entries(summary)

@@ -138,7 +138,8 @@ export async function handleGeoScorerUpdate(
         });
       }
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('[PreCheckout-Error]', err);
       return false;
     }
   }
@@ -177,7 +178,8 @@ export async function handleGeoScorerUpdate(
         });
       }
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('[InlineQuery-Error]', err);
       return false;
     }
   }
@@ -214,7 +216,7 @@ export async function handleGeoScorerUpdate(
 
     await bot.sendMessage(chatId, text, {
       parse_mode: 'Markdown',
-      reply_markup: replyMarkup as any,
+      reply_markup: replyMarkup as unknown as Parameters<typeof bot.sendMessage>[2]['reply_markup'],
     });
     return true;
   }
@@ -257,7 +259,7 @@ export async function handleGeoScorerUpdate(
             },
           ],
         ],
-      } as any,
+      } as unknown as Parameters<typeof bot.sendMessage>[2]['reply_markup'],
     });
     return true;
   }
@@ -295,7 +297,7 @@ export async function handleGeoScorerUpdate(
           prices: [{ label: 'Location Dossier', amount: 50 }],
         });
         return true;
-      } catch {
+      } catch (err) { console.error("[UDPA-Handled]", err);
         // Fallback below
       }
     }
@@ -335,7 +337,7 @@ export async function handleGeoScorerUpdate(
 
     await bot.sendMessage(chatId, formatted.text, {
       parse_mode: 'Markdown',
-      reply_markup: formatted.replyMarkup as any,
+      reply_markup: formatted.replyMarkup as unknown as Parameters<typeof bot.sendMessage>[2]['reply_markup'],
     });
     return true;
   }

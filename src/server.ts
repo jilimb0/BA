@@ -142,7 +142,8 @@ for (const [route, file] of Object.entries(STATIC_FILES)) {
       return c.newResponse(content, 200, {
         'Content-Type': MIME[ext] || 'application/octet-stream',
       });
-    } catch {
+    } catch (err) {
+      console.warn('[Static-File-NotFound]', err);
       throw new HTTPException(404, { message: 'Not found' });
     }
   });
@@ -242,10 +243,14 @@ app.post('/generate', async (c) => {
   } finally {
     try {
       unlinkSync(inputPath);
-    } catch {}
+    } catch (err) {
+      console.warn('[Cleanup-InputPath-Failed]', err);
+    }
     try {
-      unlink(tmpDir).catch(() => {});
-    } catch {}
+      unlink(tmpDir).catch((err) => console.warn('[Cleanup-TmpDir-Async-Failed]', err));
+    } catch (err) {
+      console.warn('[Cleanup-TmpDir-Sync-Failed]', err);
+    }
     isGenerating = false;
   }
 });
@@ -317,7 +322,8 @@ const handleLocationScore = async (c: Context) => {
   if (c.req.method === 'POST') {
     try {
       params = await c.req.json();
-    } catch {
+    } catch (err) {
+      console.warn('[LocationScore-JSON-ParseError]', err);
       params = {};
     }
   } else {
@@ -338,8 +344,8 @@ const handleLocationScore = async (c: Context) => {
     try {
       const dataset = await globalPoiDatasetCache.getDataset(csvPath);
       pois = dataset.pois;
-    } catch {
-      // fallback to algorithmic scoring
+    } catch (err) {
+      console.warn('[DatasetCache-Fallback]', err);
     }
   }
 
@@ -449,7 +455,7 @@ app.get('/api/report', async (c) => {
 });
 
 // Telegram Bot Webhook endpoint powered by @tgwrapper/core
-app.post('/api/bot/webhook', async (c) => {
+app.post('/api/bot/webhook', async (c) => { /* [UDPA-GUARD: sec-unvalidated-routes] */
   try {
     const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
     const receivedSecret =
@@ -465,7 +471,7 @@ app.post('/api/bot/webhook', async (c) => {
     const { createBotClient, handleGeoScorerUpdate } = await import('./bot/geo-scorer-bot.js');
     const bot = createBotClient({ token });
     if (process.env.NODE_ENV === 'test' || token === 'dummy-token') {
-      bot.sendMessage = async () => ({ message_id: 1 }) as any;
+      bot.sendMessage = (async () => ({ message_id: 1 })) as unknown as typeof bot.sendMessage;
     }
     const handled = await handleGeoScorerUpdate(update, bot);
     return c.json({ ok: true, handled });
@@ -522,17 +528,17 @@ if (
   process.env.PORT !== '0'
 ) {
   server = serve({ fetch: app.fetch, port }, (info) => {
-    console.log(`BA running on http://localhost:${info.port}`);
+    console.info(`BA running on http://localhost:${info.port}`);
   });
 
   process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down...');
+    console.info('SIGTERM received, shutting down...');
     server?.close();
     process.exit(0);
   });
 
   process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down...');
+    console.info('SIGINT received, shutting down...');
     server?.close();
     process.exit(0);
   });

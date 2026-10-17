@@ -200,7 +200,8 @@ export class POIDatasetCache {
       this.lastFilePath = csvPath;
 
       return { pois, rows };
-    } catch {
+    } catch (err) {
+      console.warn('[SpatialCache-ReadError]', err);
       return { pois: [], rows: [] };
     }
   }
