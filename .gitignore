@@ -9,5 +9,5 @@ coverage/
 *.tsbuildinfo
 raw.geojson
 _uploaded.geojson
-businesses.csv
-businesses_summary.csv
+/businesses.csv
+/businesses_summary.csv

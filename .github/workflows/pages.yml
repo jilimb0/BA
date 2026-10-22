@@ -27,7 +27,6 @@ jobs:
         run: |
           mkdir -p _site
           cp -R public/. _site/
-          cp businesses.csv _site/
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
