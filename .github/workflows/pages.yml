@@ -23,10 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p _site
+          cp -R public/. _site/
+          cp businesses.csv _site/
+          touch _site/.nojekyll
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: .
+          path: _site
 
       - id: deployment
         name: Deploy to GitHub Pages

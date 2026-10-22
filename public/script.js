@@ -55,7 +55,7 @@ function getGrade(score) {
 
 async function loadCSV() {
   try {
-    const response = await fetch("/businesses.csv", { cache: "no-store" }) /* AbortSignal.timeout(10_000) */
+    const response = await fetch("businesses.csv", { cache: "no-store" }) /* AbortSignal.timeout(10_000) */
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const text = await response.text()
     parseCSV(text)
